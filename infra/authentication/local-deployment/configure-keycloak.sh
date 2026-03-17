@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Local deployment configuration
+KEYCLOAK_HOST="localhost"
+KEYCLOAK_PATH="/access"
+KEYCLOAK_PORT="8080"
+KEYCLOAK_PROTOCOL="http"
+KEYCLOAK_REALM="vomt"
+KEYCLOAK_ADMIN_USER="admin"
+KEYCLOAK_ADMIN_PASSWORD="admin"
+KEYCLOAK_URL="${KEYCLOAK_PROTOCOL}://${KEYCLOAK_HOST}:${KEYCLOAK_PORT}${KEYCLOAK_PATH}"
+
+log() { echo "[INFO] $*"; }
+debug() { echo "[DEBUG] $*" >&2; }
+err() { echo "[ERROR] $*" >&2; exit 1; }
+
+fetch_token() {
+  debug "Fetching token from ${KEYCLOAK_URL}/realms/master/protocol/openid-connect/token"
+  debug "Using credentials: username=$KEYCLOAK_ADMIN_USER"
+  
+  local valid_token=false
+  
+  for i in {1..60}; do
+    RESPONSE=$(curl -ks -d "grant_type=password" \
+      -d "client_id=admin-cli" \
+      -d "username=$KEYCLOAK_ADMIN_USER" \
+      -d "password=$KEYCLOAK_ADMIN_PASSWORD" \
+      "${KEYCLOAK_URL}/realms/master/protocol/openid-connect/token" 2>/dev/null || echo "")
+    
+    TOKEN=$(echo "$RESPONSE" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "")
+    
+    if [[ -n "$TOKEN" && "$TOKEN" != "null" ]]; then
+      valid_token=true
+      break
+    fi
+    
+    debug "Raw token response: $RESPONSE"
+    log "Failed to fetch valid token (attempt $i of 60), retrying in 2 seconds..."
+    sleep 2
+  done
+  
+  if [[ "$valid_token" != "true" ]]; then
+    err "Failed to retrieve token after 60 attempts"
+  fi
+  
+  debug "Successfully obtained token"
+}
+
+wait_for_keycloak() {
+  local url="${KEYCLOAK_URL}/realms/master"
+  debug "Checking readiness of $url"
+  for i in {1..60}; do
+    http_code=$(curl -ks -o /dev/null -w "%{http_code}" "$url" 2>/dev/null || echo "000")
+    if [[ "$http_code" == "200" ]]; then
+      log "Keycloak is ready!"
+      return 0
+    fi
+    log "Waiting for Keycloak... ($i/60) (HTTP $http_code)"
+    sleep 5
+  done
+  err "Timeout waiting for Keycloak"
+}
+
+upload_client() {
+  local file=$1
+  local client_id
+  client_id=$(grep -o '"clientId" *: *"[^"]*"' "$file" | head -1 | grep -o '"[^"]*"$' | tr -d '"')
+  log "Upserting client '$client_id' from $file"
+
+  # Check if client already exists
+  local existing_id
+  existing_id=$(curl -ks \
+    -H "Authorization: Bearer $TOKEN" \
+    "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/clients?clientId=${client_id}" \
+    | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
+
+  if [[ -n "$existing_id" ]]; then
+    # Update existing client
+    local resp
+    resp=$(curl -ks -w "%{http_code}" -o /tmp/resp.out -X PUT \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Content-Type: application/json" \
+      --data @"$file" \
+      "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/clients/${existing_id}" 2>/dev/null || echo "000")
+    debug "Update response code: $resp"
+    [[ "$resp" == "204" ]] && log "Updated client '$client_id'" || { cat /tmp/resp.out >&2; log "Update failed ($resp) for '$client_id'"; }
+  else
+    # Create new client
+    local resp
+    resp=$(curl -ks -w "%{http_code}" -o /tmp/resp.out -X POST \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Content-Type: application/json" \
+      --data @"$file" \
+      "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/clients" 2>/dev/null || echo "000")
+    debug "Create response code: $resp"
+    [[ "$resp" == "201" ]] && log "Created client '$client_id'" || { cat /tmp/resp.out >&2; log "Create failed ($resp) for '$client_id'"; }
+  fi
+}
+
+upload_json() {
+  local file=$1 endpoint=$2
+  log "Preparing to upload $file → $endpoint"
+
+  if [[ ! -s "$file" ]]; then
+    log "Skipping upload: $file is empty or missing"
+    return
+  fi
+
+  debug "Uploading contents of $file"
+  local resp
+  resp=$(curl -ks -w "%{http_code}" -o /tmp/resp.out -X POST \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    --data @"$file" "$endpoint" 2>/dev/null || echo "000")
+
+  debug "Response code: $resp"
+  if [[ -f /tmp/resp.out ]]; then
+    debug "Response body:"
+    cat /tmp/resp.out >&2
+  fi
+
+  if [[ "$resp" =~ ^20[01]$ ]]; then
+    log "Successfully uploaded $file"
+  else
+    debug "Upload failed with status $resp, but continuing..."
+  fi
+}
+
+# Function to process template files and replace placeholders
+process_template() {
+  local input_file=$1
+  local output_file=$2
+  
+  # For local deployment, just copy the file as all Helm values have been removed
+  cp "$input_file" "$output_file"
+}
+
+main() {
+  debug "Configuration:"
+  debug "KEYCLOAK_HOST=$KEYCLOAK_HOST"
+  debug "KEYCLOAK_PATH=$KEYCLOAK_PATH"
+  debug "KEYCLOAK_PORT=$KEYCLOAK_PORT"
+  debug "KEYCLOAK_PROTOCOL=$KEYCLOAK_PROTOCOL"
+  debug "KEYCLOAK_REALM=$KEYCLOAK_REALM"
+  debug "KEYCLOAK_URL=$KEYCLOAK_URL"
+
+  wait_for_keycloak
+  fetch_token
+
+  # Check if realm already exists
+  if curl -ks -H "Authorization: Bearer $TOKEN" "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}" 2>/dev/null | grep -q "\"realm\":\"${KEYCLOAK_REALM}\""; then
+    log "Realm '${KEYCLOAK_REALM}' already exists. Skipping creation."
+  else
+    log "Uploading realm configuration"
+    upload_json "./realm.json" "${KEYCLOAK_URL}/admin/realms"
+  fi
+
+  # Process and upload client configurations
+  log "Processing and uploading client configurations"
+  mkdir -p /tmp/processed_clients
+  
+  # Process all client configurations
+  for f in ./clients/*.json; do
+    if [[ -f "$f" ]]; then
+      filename=$(basename "$f")
+      process_template "$f" "/tmp/processed_clients/$filename"
+      # Detect format: partialImport payload vs plain ClientRepresentation
+      if grep -q '"ifResourceExists"' "/tmp/processed_clients/$filename"; then
+        upload_json "/tmp/processed_clients/$filename" "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/partialImport"
+      else
+        upload_client "/tmp/processed_clients/$filename"
+      fi
+    fi
+  done
+
+  # Upload user/role mappings
+  log "Uploading user/role mappings"
+  for f in ./users/*.json; do
+    if [[ -f "$f" ]]; then
+      upload_json "$f" "${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/partialImport"
+    fi
+  done
+   
+  sleep 5
+  log "✅ Keycloak configuration completed successfully!"
+  log ""
+  log "=== VOMT Keycloak Local Deployment Ready ==="
+  log "🌐 Keycloak URL: ${KEYCLOAK_URL}"
+  log "🔧 Admin Console: ${KEYCLOAK_URL}/admin (admin/admin)"
+  log "🏠 VOMT Realm: ${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}"
+  log ""
+  log "👥 Users configured:"
+  log "  - vomtadmin/Admin@123 (admin, editor, viewer roles)"
+  log "  - vomtviewer/Viewer@123 (viewer role)"
+  log "  - vomteditor/Editor@123 (editor role)"
+  log "  - customernocuser/CustNOCUser123! (viewer role)"
+  log "  - customernocadmin/CustNocAdmin123! (admin role)"
+  log "  - nokiacnfcareeng/CNFCareEng123! (editor role)"
+  log ""
+  log "🔧 Clients configured:"
+  log "  - spog (configured for http://localhost:3000)"
+  log "  - grafana"
+  log "  - alarm-management"
+  log "  - topology"
+  log ""
+  log "🚀 Your local VOMT Keycloak is ready for development!"
+}
+
+main
