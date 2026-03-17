@@ -1,0 +1,79 @@
+{
+  "shell_spog": {
+    "mainJsUrl": "http://localhost:3000/bundle.js",
+    "label": "main",
+    "version": "1.0.0",
+    "endpoint": "/remoteEntry.js",
+    "module": "",
+    "description": "Shell application",
+    "roles": [],
+    "enabled": true,
+    "isConfigMfe": false,
+    "config": {
+      "bannerString": "sci-tech.city",
+      "productRelease": "1.0",
+      "productBuild": "1.0.0-0001",
+      "spogDomain": "http://localhost:3000",
+      "ckeyUrl": "http://localhost:8080",
+      "ckeyRealm": "sci-tech.city",
+      "ckeyClientId": "shell-app",
+      "configMfeList": [
+        {"icon": "TBD", "id": "Topology_Admin_MFE"},
+        {"icon": "TBD", "id": "KPI_Config_MFE"}
+      ]
+    }
+  },
+  "mfes": {
+    "mfe_home_page": {
+      "label": "HOME",
+      "version": "1.0.0",
+      "endpoint": "http://localhost:3010/remoteEntry.js",
+      "module": "./MfeHomePage",
+      "description": "MFE Home Page",
+      "roles": [],
+      "enabled": true,
+      "isConfigMfe": false,
+      "scope": "mfe_home_page",
+      "route": "/"
+    },
+    "mfe_chat_room": {
+      "label": "SPACE",
+      "version": "1.0.0",
+      "endpoint": "http://localhost:3011/remoteEntry.js",
+      "module": "./MfeChatRoom",
+      "description": "MFE Chat Room",
+      "roles": ["admin", "user", "viewer", "editor"],
+      "actionRoles": ["admin", "user", "viewer", "editor"],
+      "enabled": true,
+      "isConfigMfe": false,
+      "scope": "mfe_chat_room",
+      "route": "space"
+    },
+    "mfe_canban_board": {
+      "label": "Canban Board",
+      "version": "1.0.0",
+      "endpoint": "http://localhost:3012/remoteEntry.js",
+      "module": "./MfeCanbanBoard",
+      "description": "MFE Canban Board",
+      "roles": ["admin"],
+      "actionRoles": ["admin"],
+      "enabled": true,
+      "isConfigMfe": false,
+      "scope": "mfe_canban_board",
+      "route": "backlog"
+    },
+    "mfe_blog": {
+      "label": "Blog",
+      "version": "1.0.0",
+      "endpoint": "http://localhost:3013/remoteEntry.js",
+      "module": "./MfeBlog",
+      "description": "MFE Blog",
+      "roles": ["admin", "user", "viewer", "editor"],
+      "actionRoles": ["admin"],
+      "enabled": true,
+      "isConfigMfe": false,
+      "scope": "mfe_blog",
+      "route": "blog"
+    }
+  }
+}

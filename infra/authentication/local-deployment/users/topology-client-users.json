@@ -1,0 +1,12 @@
+{
+  "ifResourceExists": "OVERWRITE",
+  "users": [
+    {
+      "username": "service-account-topology",
+      "enabled": true,
+      "serviceAccountClientId": "topology",
+      "realmRoles": ["admin", "editor", "viewer"]
+    }
+  ]
+}
+

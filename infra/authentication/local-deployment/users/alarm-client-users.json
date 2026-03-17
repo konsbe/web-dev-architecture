@@ -1,0 +1,12 @@
+{
+  "ifResourceExists": "OVERWRITE",
+  "users": [
+    {
+      "username": "service-account-alarm-management",
+      "enabled": true,
+      "serviceAccountClientId": "alarm-management",
+      "realmRoles": ["admin", "editor", "viewer"]
+    }
+  ]
+}
+

@@ -1,0 +1,16 @@
+{
+  "ifResourceExists": "OVERWRITE",
+  "users": [
+    {
+      "username": "service-account-spog",
+      "enabled": true,
+      "serviceAccountClientId": "spog",
+      "realmRoles": [
+        "customernocadmin",
+        "nokiacnfcareeng",
+        "customernocuser"
+      ]
+    }
+  ]
+}
+
