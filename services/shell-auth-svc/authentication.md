@@ -1,8 +1,8 @@
-# Authentication — NCMT SPOG Backend
+# Authentication — SHELL AUTHENTICATION SERVICE
 
 ## Purpose
 
-The `shell-auth-svc` is a Go HTTP service that acts as a **Backend for Frontend (BFF)** authentication proxy between the SPOG React SPA and Keycloak (the NCMT Identity Provider). It implements the **OIDC Authorization Code Flow with PKCE** entirely on the server side, ensuring that tokens never reach the browser's JavaScript context.
+The `shell-auth-svc` is a Go HTTP service that acts as a **Backend for Frontend (BFF)** authentication proxy between the SHELL React SPA and Keycloak (the NCMT Identity Provider). It implements the **OIDC Authorization Code Flow with PKCE** entirely on the server side, ensuring that tokens never reach the browser's JavaScript context.
 
 The service is responsible for:
 - Redirecting unauthenticated users to Keycloak
@@ -22,7 +22,7 @@ The service is responsible for:
 ┌──────────────────────────────────────────────────────────────────────┐
 │                                                                      │
 │  ┌──────────────┐  HTTPS (mTLS optional)  ┌──────────────────────┐  │
-│  │  SPOG React  │ ──────────────────────▶ │  shell-auth-svc   │  │
+│  │  SHELL React  │ ──────────────────────▶ │  shell-auth-svc   │  │
 │  │  Frontend    │ ◀── session cookie ───── │  :8081               │  │
 │  └──────────────┘                         └─────────┬────────────┘  │
 │                                                     │ HTTPS          │
@@ -80,7 +80,7 @@ User → React Frontend → GET /auth/login → [Go Backend]
 
 ### Step-by-step
 
-1. **User navigates to SPOG** — the frontend checks `/auth/status`. A `401 Unauthorized` triggers a redirect to `/auth/login`.
+1. **User navigates to SHELL** — the frontend checks `/auth/status`. A `401 Unauthorized` triggers a redirect to `/auth/login`.
 
 2. **`GET /auth/login`** — the backend checks for an existing server-side session. If none exists, it constructs an OAuth2 authorization URL (including `state`, `code_challenge`, `code_challenge_method=S256`) and redirects the browser to Keycloak.
 
