@@ -46,7 +46,7 @@ Complete local replication of Nokia VOMT Keycloak setup for development.
 | `alarm-management` | Alarm management service | Standard service client |
 | `topology` | Topology service | Standard service client |
 
-## 🚀 For Your Frontend (localhost:3000)
+## 🚀 For Frontend (localhost:3000)
 
 The SPOG client is perfectly configured for your localhost:3000 application with:
 
