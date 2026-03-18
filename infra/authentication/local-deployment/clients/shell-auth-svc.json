@@ -1,6 +1,6 @@
 {
-  "clientId": "spog-backend",
-  "name": "spog-backend",
+  "clientId": "shell-auth-svc",
+  "name": "shell-auth-svc",
   "description": "",
   "rootUrl": "http://localhost:8081",
   "adminUrl": "http://localhost:8081",
