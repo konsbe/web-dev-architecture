@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `shell-auth-svc` is a Go HTTP service that acts as a **Backend for Frontend (BFF)** authentication proxy between the SHELL React SPA and Keycloak (the NCMT Identity Provider). It implements the **OIDC Authorization Code Flow with PKCE** entirely on the server side, ensuring that tokens never reach the browser's JavaScript context.
+The `spog-auth-svc` is a Go HTTP service that acts as a **Backend for Frontend (BFF)** authentication proxy between the SHELL React SPA and Keycloak (the SPOG Identity Provider). It implements the **OIDC Authorization Code Flow with PKCE** entirely on the server side, ensuring that tokens never reach the browser's JavaScript context.
 
 The service is responsible for:
 - Redirecting unauthenticated users to Keycloak
@@ -22,14 +22,14 @@ The service is responsible for:
 ┌──────────────────────────────────────────────────────────────────────┐
 │                                                                      │
 │  ┌──────────────┐  HTTPS (mTLS optional)  ┌──────────────────────┐  │
-│  │  SHELL React  │ ──────────────────────▶ │  shell-auth-svc   │  │
+│  │  SHELL React  │ ──────────────────────▶ │  spog-auth-svc   │  │
 │  │  Frontend    │ ◀── session cookie ───── │  :8081               │  │
 │  └──────────────┘                         └─────────┬────────────┘  │
 │                                                     │ HTTPS          │
 │                                                     ▼ (CA verified)  │
 │                                          ┌──────────────────────┐   │
 │                                          │  Keycloak / OIDC     │   │
-│                                          │  (NCMT IAM Provider) │   │
+│                                          │  (SPOG IAM Provider) │   │
 │                                          └──────────────────────┘   │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -145,19 +145,19 @@ go run ./src/cmd/main.go
 
 | Variable              | Default                                                                | Description                                          |
 |-----------------------|------------------------------------------------------------------------|------------------------------------------------------|
-| `OIDC_CLIENT_ID`      | `shell-auth-svc`                                                         | Client ID registered in Keycloak                     |
+| `OIDC_CLIENT_ID`      | `spog-auth-svc`                                                         | Client ID registered in Keycloak                     |
 | `OIDC_CLIENT_SECRET`  | *(dev default)*                                                        | Client secret — inject via Kubernetes Secret         |
-| `OIDC_ISSUER`         | `http://localhost:8080/access/realms/ncmt`                             | Keycloak realm issuer URL                            |
+| `OIDC_ISSUER`         | `http://localhost:8080/access/realms/vomt`                             | Keycloak realm issuer URL                            |
 | `OIDC_REDIRECT_URI`   | `http://localhost:8081/auth/callback`                                  | Backend callback URI registered in Keycloak          |
-| `OIDC_TOKEN_ENDPOINT` | `http://localhost:8080/access/realms/ncmt/protocol/openid-connect/token` | Token exchange endpoint                            |
-| `OIDC_AUTH_URL`       | `http://localhost:8080/access/realms/ncmt/protocol/openid-connect/auth`  | Authorization endpoint                             |
-| `OIDC_END_SESSION`    | `http://localhost:8080/access/realms/ncmt/protocol/openid-connect/logout`| Keycloak end-session endpoint for global logout    |
+| `OIDC_TOKEN_ENDPOINT` | `http://localhost:8080/access/realms/vomt/protocol/openid-connect/token` | Token exchange endpoint                            |
+| `OIDC_AUTH_URL`       | `http://localhost:8080/access/realms/vomt/protocol/openid-connect/auth`  | Authorization endpoint                             |
+| `OIDC_END_SESSION`    | `http://localhost:8080/access/realms/vomt/protocol/openid-connect/logout`| Keycloak end-session endpoint for global logout    |
 
 ### CORS Configuration
 
 | Variable            | Default                          | Description                            |
 |---------------------|----------------------------------|----------------------------------------|
-| `ALLOW_ORIGIN`      | `http://localhost:5175`          | Allowed frontend origin                |
+| `ALLOW_ORIGIN`      | `http://localhost:3000`          | Allowed frontend origin                |
 | `ALLOW_HEADERS`     | `Content-Type, Authorization`    | Allowed request headers                |
 | `ALLOW_METHODS`     | `GET, POST, OPTIONS`             | Allowed HTTP methods                   |
 | `ALLOW_CREDENTIALS` | `true`                           | Allow cookies with cross-origin requests |
@@ -193,7 +193,7 @@ Certificate volumes are mounted from Kubernetes Secrets:
 
 | Path              | Secret               | Contains                           | Used by                 |
 |-------------------|----------------------|------------------------------------|-------------------------|
-| `/service_certs`  | `shell-auth-svc-tls`   | `ca.crt`, `tls.crt`, `tls.key`     | Inbound HTTPS server    |
+| `/service_certs`  | `spog-auth-svc-tls`   | `ca.crt`, `tls.crt`, `tls.key`     | Inbound HTTPS server    |
 | `/keycloak_certs` | `keycloak-tls`       | `ca.crt`                           | Outbound Keycloak client|
 
 Setting `TLS_ENABLED=false` disables all three derived flags — plain HTTP, no cert files required.
@@ -202,11 +202,11 @@ Setting `TLS_ENABLED=false` disables all three derived flags — plain HTTP, no 
 
 ## Keycloak Client Setup
 
-Register a **confidential** backend client in the `ncmt` realm:
+Register a **confidential** backend client in the `vomt` realm:
 
 | Setting                     | Value                                       |
 |-----------------------------|---------------------------------------------|
-| **Client ID**               | `shell-auth-svc`                              |
+| **Client ID**               | `spog-auth-svc`                              |
 | **Access Type**             | Confidential                                |
 | **Valid Redirect URIs**     | `https://<domain>/auth/callback`            |
 | **Post Logout Redirect URIs** | `https://<frontend-domain>/*`             |
@@ -264,6 +264,6 @@ src/
 | OIDC client            | `coreos/go-oidc` + `golang.org/x/oauth2`  |
 | Session storage        | Server-side in-memory store               |
 | Session cookie         | `HttpOnly`, `Secure`, `SameSite=Lax`      |
-| Identity Provider      | Keycloak (`ncmt` realm)                   |
+| Identity Provider      | Keycloak (`vomt` realm)                   |
 | TLS                    | `crypto/tls` with optional mTLS           |
 | Module management      | `go mod`                                  |
